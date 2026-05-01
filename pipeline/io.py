@@ -1,4 +1,5 @@
 from pathlib import Path
+import pandas as pd
 
 
 def lightcurve_reader(filepath):
@@ -47,3 +48,18 @@ def create_file_list(folder_path, extension):
         extension = '.' + extension
     
     return list((Path(folder_path).glob(f"*{extension}")))
+
+def multi_lightcurve_reader(file_list):
+    """Process multipole lightcurves"""
+    data = []
+    exit_status = 0
+
+    for file in file_list:
+        file_data, exit_status = lightcurve_reader(file)
+        if exit_status == 0:
+            data.append(file_data)
+            continue
+
+        exit_status = 1
+    
+    return data, exit_status
