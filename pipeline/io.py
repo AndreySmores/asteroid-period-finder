@@ -2,7 +2,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def lightcurve_reader(filepath):
+def lightcurve_reader(filepath, time_col = 0, data_col = 1):
     """"""
     try:
         path = Path(filepath)
@@ -13,14 +13,15 @@ def lightcurve_reader(filepath):
     
     match str(extension):
         case '.xml': 
-            data, exit_status = xml_handler(path)
+            data, exit_status = xml_handler(path, time_col, data_col)
         case '.json':
-            data, exit_status = json_handler(path)
+            data, exit_status = json_handler(path, time_col, data_col)
         case '.csv':
-            data, exit_status = csv_handler(path)
+            data, exit_status = csv_handler(path, time_col, data_col)
         case ".tab":
-            data, exit_status = tab_handler(path)
+            data, exit_status = tab_handler(path, time_col, data_col)
         case _:
+            # In normal operators, this should never run. Wrapper methods check for this as well, but it is a good double check I suppose.
             print(f'Extension: {extension} of file {filepath} is not valid! \nPlease enter a valid filetype.\n')
             return None, -1
         
