@@ -42,4 +42,8 @@ def tab_handler(path):
     return 400, 0
 
 def create_file_list(folder_path, extension):
+    """Create a file list from a given folder and extension"""
+    if ('.' not in extension):
+        extension = '.' + extension
     
+    return list((Path(folder_path).glob(f"*{extension}")))
