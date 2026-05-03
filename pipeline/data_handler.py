@@ -21,7 +21,11 @@ def load_all_single(file_path, time_col = 0, data_col = 1):
     return io.lightcurve_reader(file_path, time_col, data_col)
 
 def fetch_ephemeris(time_jds, asteroid_id, coordinates = None, chunk_size=50):
-    """Query JPL Horizons to get RA, DEC, phase angel, etc."""
+    """
+    Query JPL Horizons to get RA, DEC, phase angel, etc.
+    chunk_size = 50 seems to be a good default, but it's worth exploring other parameters
+    statistics for query times should be in the wiki
+    """
     if coordinates is not None:
         location = {
             'lon': coordinates[1],
@@ -89,20 +93,34 @@ def load_coordinates(metadata):
 
     return (lat, long)
 
+def undo_ltcapp(jds, ltcdays):
+    """Undo light travel time correction using the value stored in metadata"""
+    return jds - float(ltcdays)
+
 def process_lightcurve(data, metadata, asteroid_id = None):
     """Apply corrections one by one"""
 
+    processed = []
+
+    # First, we check what has already been corrected, since our ephemeris calls rely on uncorrected data
+    # We need to undo any light time travel corrections that have already been applied
+    for observation, obs_meta in zip(data, metadata):
+        df = observation.copy()
+        time_corrected, _ = check_corrections(obs_meta)
+
+        if time_corrected:
+            ltcdays = float(obs_meta.get('LTCDAYS', 0))
+            df[0] = undo_ltcapp(df[0].values, ltcdays)
+
+        processed.append(df)
+    
     all_jds = np.concatenate([df[0].values for df in data])
     ephemeris = fetch_ephemeris(all_jds, asteroid_id)
 
-    # First, we check what has already been corrected, then we apply the necessary methods
-    for observation, obs_meta in zip(data, metadata):
-        # TODO Find a way to reduce the number of JPL queries
-        # There is always a chance that multiple locations are mixed it, so we can't just
-        # Create one query since they are location dependent
-
-        time_corrected, phase_corrected = check_corrections(obs_meta)
-        coordinates = load_coordinates(obs_meta)
+    sizes = [len(df) for df in data]
+    split_indices = np.cumsum(sizes)[:-1]
+    eph_splits = np.split(np.arange(len(ephemeris)), split_indices)
+    
     return ephemeris
 
 
