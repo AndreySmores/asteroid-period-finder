@@ -1,8 +1,10 @@
 import io
 import numpy as np
+import time
+import pandas as pd
+
 from astroquery.jplhorizons import Horizons, conf
 from astropy.table import vstack
-import time
 
 conf.horizons_server = 'https://ssd.jpl.nasa.gov/api/horizons.api'
 
@@ -59,7 +61,7 @@ def fetch_ephemeris(time_jds, asteroid_id, coordinates = None, chunk_size=50):
 def apply_photo_corrections(df, ephemeris):
     pass
 
-def covert_times(df, ra, dec, observatory):
+def convert_times(df, ra, dec, observatory):
     pass
 
 def sigma_filter(df, col = 'corected_mag', sigma = 3):
@@ -97,8 +99,14 @@ def undo_ltcapp(jds, ltcdays):
     """Undo light travel time correction using the value stored in metadata"""
     return jds - float(ltcdays)
 
+def fetch_asteroid_id(metadata):
+    return metadata.get('OBJECTNUMBER', None)
+
 def process_lightcurve(data, metadata, asteroid_id = None):
     """Apply corrections one by one"""
+
+    if asteroid_id is None:
+        asteroid_id = fetch_asteroid_id(metadata[0]) # This assumes all data is for the same asteroid
 
     processed = []
 
@@ -114,14 +122,31 @@ def process_lightcurve(data, metadata, asteroid_id = None):
 
         processed.append(df)
     
-    all_jds = np.concatenate([df[0].values for df in data])
+    all_jds = np.concatenate([df[0].values for df in processed])
     ephemeris = fetch_ephemeris(all_jds, asteroid_id)
 
-    sizes = [len(df) for df in data]
+    sizes = [len(df) for df in processed]
     split_indices = np.cumsum(sizes)[:-1]
     eph_splits = np.split(np.arange(len(ephemeris)), split_indices)
+
+    final = []
+
+    for df, obs_meta, eph_idx in zip(processed, metadata, eph_splits):
+        obs_eph = ephemeris[eph_idx]
+        _, phase_corrected = check_corrections(obs_meta)
+        coordinates = load_coordinates(obs_meta)
+
+        if not phase_corrected:
+            df = apply_photo_corrections(df, obs_eph)
+
+        df = convert_times(df, obs_eph['RA'], obs_eph['DEC'], coordinates)
+
+        final.append(df)
+
+    combined = pd.concat(final, ignore_index = True)
+    combined = sigma_filter(combined)
     
-    return ephemeris
+    return combined
 
 
 
