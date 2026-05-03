@@ -2,9 +2,12 @@ import io
 import numpy as np
 import time
 import pandas as pd
+import astropy.units as u
 
 from astroquery.jplhorizons import Horizons, conf
 from astropy.table import vstack
+from sbpy.photometry import HG
+
 
 conf.horizons_server = 'https://ssd.jpl.nasa.gov/api/horizons.api'
 
@@ -58,14 +61,57 @@ def fetch_ephemeris(time_jds, asteroid_id, coordinates = None, chunk_size=50):
     return vstack(results)
 
 
-def apply_photo_corrections(df, ephemeris):
-    pass
+def apply_photo_corrections(df, ephemeris, G=0.15):
+    """Correct for both phase angle variations (from Earth) in magnitude and distance variations (from Sun)"""
+    df = df.copy()
 
-def convert_times(df, ra, dec, observatory):
-    pass
+    r = ephemeris['r'].data.astype(float)
+    delta = ephemeris['delta'].data.astype(float)
+    alpha = ephemeris['alpha'].data.astype(float)
 
-def sigma_filter(df, col = 'corected_mag', sigma = 3):
-    pass
+    distance_correction = 5 * np.log10(r * delta)
+
+    hg = HG(H=0*u.mag, G=G*u.dimensionless_unscaled)
+    phase_correction = hg(alpha * u.deg).value
+
+    df[1] = df[1] - distance_correction - phase_correction
+
+    return df
+
+def convert_times(df, ephemeris):
+    """Converts times from time recieved at Earth to time emitted from asteroid"""
+    df = df.copy()
+    c_au_per_day = 173.145
+    delta = ephemeris['delta'].data.astype(float)
+
+    df['jd_corrected'] = df[0].values - (delta / c_au_per_day)
+
+    return df
+
+
+def sigma_filter(df, data_col=1, sigma=3, window=20):
+    """
+    Apply running sigma clipping using a local window.
+    Removes points where |y - local_mean| > sigma * local_std
+    """
+    df = df.copy()
+
+    while True:
+        # Compute rolling mean and std
+        rolling_mean = df[data_col].rolling(window=window, center=True, min_periods=3).mean()
+        rolling_std = df[data_col].rolling(window=window, center=True, min_periods=3).std()
+
+        mask = np.abs(df[data_col] - rolling_mean) <= sigma * rolling_std
+
+        new_df = df[mask]
+
+        if len(new_df) == len(df):
+            break
+
+        df = new_df.reset_index(drop=True)
+
+    return df.reset_index(drop=True)
+
 
 def check_corrections(metadata):
     """
@@ -97,22 +143,26 @@ def load_coordinates(metadata):
 
 def undo_ltcapp(jds, ltcdays):
     """Undo light travel time correction using the value stored in metadata"""
-    return jds - float(ltcdays)
+    return jds - float(ltcdays) # The subtraction might be confusing since the correction is always a negative value, but we're undoing the correction
 
 def fetch_asteroid_id(metadata):
-    return metadata.get('OBJECTNUMBER', None)
+    return metadata.get('OBJECTNUMBER') or metadata.get('OBJECTNAME', None) # Try both options, return None otherwise
 
 def process_lightcurve(data, metadata, asteroid_id = None):
     """Apply corrections one by one"""
 
-    if asteroid_id is None:
-        asteroid_id = fetch_asteroid_id(metadata[0]) # This assumes all data is for the same asteroid
-
     processed = []
+
+    #Edge case where we end up with a list of a list of dataframes
+    flat_data = [df for obs_list in data for df in obs_list]
+    flat_metadata = [meta for meta_list in metadata for meta in meta_list]
+
+    if asteroid_id is None:
+        asteroid_id = fetch_asteroid_id(flat_metadata[0]) # This assumes all data is for the same asteroid
 
     # First, we check what has already been corrected, since our ephemeris calls rely on uncorrected data
     # We need to undo any light time travel corrections that have already been applied
-    for observation, obs_meta in zip(data, metadata):
+    for observation, obs_meta in zip(flat_data, flat_metadata):
         df = observation.copy()
         time_corrected, _ = check_corrections(obs_meta)
 
@@ -131,7 +181,7 @@ def process_lightcurve(data, metadata, asteroid_id = None):
 
     final = []
 
-    for df, obs_meta, eph_idx in zip(processed, metadata, eph_splits):
+    for df, obs_meta, eph_idx in zip(processed, flat_metadata, eph_splits):
         obs_eph = ephemeris[eph_idx]
         _, phase_corrected = check_corrections(obs_meta)
         coordinates = load_coordinates(obs_meta)
@@ -139,12 +189,15 @@ def process_lightcurve(data, metadata, asteroid_id = None):
         if not phase_corrected:
             df = apply_photo_corrections(df, obs_eph)
 
-        df = convert_times(df, obs_eph['RA'], obs_eph['DEC'], coordinates)
+        df = convert_times(df, obs_eph)
+
+        #TODO: Find a better way to homogenize the zero point of each session
+        df[1] = df[1] - df[1].mean() # Remove the variable 0 point offset from each session, decent approximation
+        df = sigma_filter(df)
 
         final.append(df)
 
     combined = pd.concat(final, ignore_index = True)
-    combined = sigma_filter(combined)
     
     return combined
 
