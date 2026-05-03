@@ -153,16 +153,12 @@ def process_lightcurve(data, metadata, asteroid_id = None):
 
     processed = []
 
-    #Edge case where we end up with a list of a list of dataframes
-    flat_data = [df for obs_list in data for df in obs_list]
-    flat_metadata = [meta for meta_list in metadata for meta in meta_list]
-
     if asteroid_id is None:
-        asteroid_id = fetch_asteroid_id(flat_metadata[0]) # This assumes all data is for the same asteroid
+        asteroid_id = fetch_asteroid_id(metadata[0]) # This assumes all data is for the same asteroid
 
     # First, we check what has already been corrected, since our ephemeris calls rely on uncorrected data
     # We need to undo any light time travel corrections that have already been applied
-    for observation, obs_meta in zip(flat_data, flat_metadata):
+    for observation, obs_meta in zip(data, metadata):
         df = observation.copy()
         time_corrected, _ = check_corrections(obs_meta)
 
@@ -181,7 +177,7 @@ def process_lightcurve(data, metadata, asteroid_id = None):
 
     final = []
 
-    for df, obs_meta, eph_idx in zip(processed, flat_metadata, eph_splits):
+    for df, obs_meta, eph_idx in zip(processed, metadata, eph_splits):
         obs_eph = ephemeris[eph_idx]
         _, phase_corrected = check_corrections(obs_meta)
         coordinates = load_coordinates(obs_meta)
