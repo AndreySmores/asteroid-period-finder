@@ -134,11 +134,13 @@ def check_corrections(metadata):
 def check_relative_mags(metadata):
     """"""
     relative = False
-
-    try:
-        relative = metadata['DIFFERMAGS'] == "TRUE"
-    except KeyError:
-        pass
+    for meta in metadata:
+        try:
+            relative = meta['DIFFERMAGS'] == "TRUE"
+            if relative:
+                return relative
+        except KeyError:
+            pass
 
     return relative
         
@@ -189,10 +191,12 @@ def process_lightcurve(data, metadata, asteroid_id = None):
 
     final = []
 
+    relative_mags = check_relative_mags(metadata)
+
     for df, obs_meta, eph_idx in zip(processed, metadata, eph_splits):
         obs_eph = ephemeris[eph_idx]
         _, phase_corrected = check_corrections(obs_meta)
-        coordinates = load_coordinates(obs_meta)
+        # coordinates = load_coordinates(obs_meta) #improve accuracy just a bit by finishing the usage of this
 
         if not phase_corrected:
             df = apply_photo_corrections(df, obs_eph)
@@ -200,9 +204,9 @@ def process_lightcurve(data, metadata, asteroid_id = None):
         df = convert_times(df, obs_eph)
 
         #TODO: Find a better way to homogenize the zero point of each session
-        if check_relative_mags(obs_meta):
-            pass
-        df[1] = df[1] - df[1].mean() # Remove the variable 0 point offset from each session, decent approximation
+        if relative_mags:  
+            df[1] = df[1] - df[1].mean() # Remove the variable 0 point offset from each session, decent approximation
+        
         df = sigma_filter(df)
 
         final.append(df)
