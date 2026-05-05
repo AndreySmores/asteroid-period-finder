@@ -7,7 +7,7 @@ def compute_tau(f, t):
     return np.arctan2(numerator, denominator) / (4 * np.pi * f)
 
 def compute_power(f, t, y):
-    """Compute Lomb-Scargle power at frequency f from equation 4"""
+    """Compute Lomb-Scargle power at frequency f from equation. Reelveant equation reference in Wiki"""
     y_mean = np.mean(y)
     y_var = np.var(y)
     tau = compute_tau(f, t)
@@ -35,7 +35,7 @@ def lomb_scargle(t, y, fmin=0.024, fmax=12.0):
     
     Returns: frequencies, powers, fpeak
     """
-    T = np.max(t.max() - t.min(), 365) # Longest known asteroid rotation period is ~200 days, for multi year observations, we know want an overly inflated T
+    T = np.minimum(t.max() - t.min(), 365) # Longest known asteroid rotation period is ~200 days, for multi year observations, we know want an overly inflated T
     df = 1 / (10 * T)  # frequency grid spacing from spec
 
     frequencies = np.arange(fmin, fmax, df)
