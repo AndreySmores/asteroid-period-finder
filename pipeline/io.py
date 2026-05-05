@@ -46,18 +46,26 @@ def json_handler(file_path, time_col = 0, data_col = 1):
 def csv_handler(file_path, time_col = 0, data_col = 1):
     return 300, None, 0
 
-def tab_handler(file_path, time_col = 0, data_col = 1):
+def tab_handler(file_path, time_col=0, data_col=1):
     """Read .tab files"""
-    # TO-DO: add metadata hard coding for data that has already been calibrated #
-    # Likely more flags needed as well #
     try:
         df = pd.read_csv(file_path, sep=r"\s+", header=None)
-    
     except Exception as e:
         print(f'Error reading file: {str(file_path)}\n Exception: {e}\n')
         return None, None, -1
-    
-    return df, None, 0
+
+    # Tab files have no embedded metadata, so we stub it out with known defaults.
+    # Tab files from this pipeline are assumed to be pre-calibrated differential magnitudes
+    # with no light travel time correction applied.
+    metadata = {
+        'LTCAPP': 'NONE',
+        'REDUCEDMAGS': 'NONE',
+        'DIFFERMAGS': 'FALSE',
+        'source_file': str(file_path),
+        'origin': 'tab'
+    }
+
+    return df, metadata, 0
 
 def txt_handler(file_path, time_col = 0, data_col = 1):
     """Read txt files that have metadata built in"""
@@ -135,8 +143,8 @@ def multi_lightcurve_reader(file_list, time_col=0, data_col=1):
     for file in file_list:
         file_data, file_metadata, exit_status = lightcurve_reader(file, time_col, data_col)
         if exit_status == 0:
-            data.append(file_data)
-            metadata.append(file_metadata)
+            data.extend(file_data)
+            metadata.extend(file_metadata)
             continue
 
         exit_status = 1
