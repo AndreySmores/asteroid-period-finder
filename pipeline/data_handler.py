@@ -130,6 +130,18 @@ def check_corrections(metadata):
         pass
 
     return time_corrected, phase_corrected
+
+def check_relative_mags(metadata):
+    """"""
+    relative = False
+
+    try:
+        relative = metadata['DIFFERMAGS'] == "TRUE"
+    except KeyError:
+        pass
+
+    return relative
+        
      
 def load_coordinates(metadata):
     try:
@@ -188,6 +200,8 @@ def process_lightcurve(data, metadata, asteroid_id = None):
         df = convert_times(df, obs_eph)
 
         #TODO: Find a better way to homogenize the zero point of each session
+        if check_relative_mags(obs_meta):
+            pass
         df[1] = df[1] - df[1].mean() # Remove the variable 0 point offset from each session, decent approximation
         df = sigma_filter(df)
 
