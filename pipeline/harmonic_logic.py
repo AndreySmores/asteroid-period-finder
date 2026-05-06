@@ -25,143 +25,132 @@ def find_peak_clusters(frequencies, powers, n_peaks=20, cluster_width=0.05):
 
 
 def fourier_model(t, frot, coeffs):
-    """Evaluate Fourier series of arbitrary order at times t"""
-    result = np.full(len(t), coeffs[0])  # C term
-    n_harmonics = (len(coeffs) - 1) // 2
-    for n in range(1, n_harmonics + 1):
-        a = coeffs[2*n - 1]  # sin coefficient
-        b = coeffs[2*n]      # cos coefficient
-        result += a * np.sin(2 * np.pi * n * frot * t)
-        result += b * np.cos(2 * np.pi * n * frot * t)
-    return result
-
-
-def fit_nth_order(t, y, frot, order):
-    """
-    Fit nth order Fourier series via linear least squares.
-    Returns coeffs padded to length 2*max_order+1 for uniform amplitude_ratio,
-    and reduced chi2.
-    order: number of harmonics to include (1=single, 2=double, 3=triple, 4=quadruple)
-    """
-    cols = [np.ones(len(t))]
-    for n in range(1, order + 1):
-        cols.append(np.sin(2 * np.pi * n * frot * t))
-        cols.append(np.cos(2 * np.pi * n * frot * t))
-    
-    A = np.column_stack(cols)
-    coeffs, _, _, _ = np.linalg.lstsq(A, y, rcond=None)
-    y_pred = A @ coeffs
-    n_params = 1 + 2 * order
-    chi2_reduced = np.sum((y - y_pred) ** 2) / (len(t) - n_params)
-
-    # Pad coeffs to length 9 (up to 4th order: C + 4*2 = 9)
-    # so amplitude_ratio always works on coeffs[1], coeffs[2], coeffs[3], coeffs[4]
-    coeffs_padded = np.zeros(13)
-    coeffs_padded[:len(coeffs)] = coeffs
-
-    return coeffs_padded, chi2_reduced
+    """Evaluate second order Fourier series at times t"""
+    C, A1, B1, A2, B2 = coeffs
+    return (C
+            + A1 * np.sin(2 * np.pi * frot * t)
+            + B1 * np.cos(2 * np.pi * frot * t)
+            + A2 * np.sin(4 * np.pi * frot * t)
+            + B2 * np.cos(4 * np.pi * frot * t))
 
 
 def fit_fourier(t, y, frot):
-    """Fit second order Fourier series — kept for compatibility"""
-    coeffs, chi2 = fit_nth_order(t, y, frot, order=2)
-    return coeffs, chi2
-
-
-def fit_single(t, y, frot):
-    """Fit first order Fourier series"""
-    coeffs, chi2 = fit_nth_order(t, y, frot, order=1)
-    return coeffs, chi2
+    """Fit second order Fourier series via linear least squares at a given frot"""
+    A = np.column_stack([
+        np.ones(len(t)),
+        np.sin(2 * np.pi * frot * t),
+        np.cos(2 * np.pi * frot * t),
+        np.sin(4 * np.pi * frot * t),
+        np.cos(4 * np.pi * frot * t)
+    ])
+    coeffs, _, _, _ = np.linalg.lstsq(A, y, rcond=None)
+    y_pred = A @ coeffs
+    chi2_reduced = np.sum((y - y_pred) ** 2) / (len(t) - len(coeffs))
+    return coeffs, chi2_reduced
 
 
 def amplitude_ratio(coeffs):
-    """Second to first harmonic amplitude ratio"""
-    fundamental = np.sqrt(coeffs[1]**2 + coeffs[2]**2)
-    harmonic = np.sqrt(coeffs[3]**2 + coeffs[4]**2)
-    if fundamental < 1e-10:
-        return 0.0
-    return harmonic / fundamental
+    """
+    Compute the ratio of 2nd harmonic amplitude to fundamental amplitude
+    from a set of 2nd-order Fourier coefficients [C, A1, B1, A2, B2].
+    Both amplitudes are computed in quadrature: sqrt(A_k^2 + B_k^2).
+    Returns inf if the fundamental amplitude is zero.
+    """
+    A1, B1 = coeffs[1], coeffs[2]
+    A2, B2 = coeffs[3], coeffs[4]
+    fund = np.sqrt(A1**2 + B1**2)
+    harm = np.sqrt(A2**2 + B2**2)
+    return harm / fund if fund > 0 else np.inf
 
 
-def refine_period(t, y, frot_candidate, window=0.1, n_steps=1000):
-    """Refine frot around candidate by minimizing chi2 over fine grid"""
+def refine_period(t, y, frot_candidate, window=0.1, n_steps=10000):
+    """
+    Refine frot around a candidate by grid searching +-window
+    and picking the frequency with lowest chi2.
+    frot_candidate is treated directly as frot — no halving.
+    """
     f_lo = frot_candidate * (1 - window)
     f_hi = frot_candidate * (1 + window)
     fine_freqs = np.linspace(f_lo, f_hi, n_steps)
-    chi2s = [fit_nth_order(t, y, f, order=6)[1] for f in fine_freqs]
+
+    chi2s = [fit_fourier(t, y, f)[1] for f in fine_freqs]
+
     best_frot = fine_freqs[np.argmin(chi2s)]
-    best_coeffs, best_chi2 = fit_nth_order(t, y, best_frot, order=6)
+    best_coeffs, best_chi2 = fit_fourier(t, y, best_frot)
+
     return best_frot, best_coeffs, best_chi2
 
 
 def compare_models(t, y, frot):
-    """Compare single vs double harmonic at frot"""
-    _, chi2_single = fit_nth_order(t, y, frot, order=1)
-    _, chi2_double = fit_nth_order(t, y, frot, order=2)
+    """
+    Compare single vs double harmonic model at frot.
+    Returns (chi2_single, chi2_double).
+    """
+    A_single = np.column_stack([
+        np.ones(len(t)),
+        np.sin(2 * np.pi * frot * t),
+        np.cos(2 * np.pi * frot * t)
+    ])
+    coeffs_single, _, _, _ = np.linalg.lstsq(A_single, y, rcond=None)
+    y_pred_single = A_single @ coeffs_single
+    chi2_single = np.sum((y - y_pred_single) ** 2) / (len(t) - 3)
+
+    _, chi2_double = fit_fourier(t, y, frot)
+
     return chi2_single, chi2_double
 
 
 def harmonic_logic(t, y, frequencies, powers, n_peaks=20, cluster_width=0.05, window=0.1):
+    """
+    For each LS cluster frequency f_ls:
+      - Interpret as single peaked: frot = f_ls, refine around f_ls
+      - Interpret as double peaked: frot = f_ls/2, refine around f_ls/2
+    Pick the (interpretation, cluster) pair with lowest chi2.
+    is_double_peaked determined by second harmonic amplitude ratio.
+    
+    Note: t is NOT shifted internally — caller is responsible for consistency.
+    """
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)
 
     clusters = find_peak_clusters(frequencies, powers, n_peaks, cluster_width)
-
-    print("=" * 80)
-    print(f"HARMONIC ANALYSIS — {len(clusters)} clusters found")
-    print("=" * 80)
+    print(f"Found {len(clusters)} clusters, refining each...")
 
     best_chi2 = np.inf
     best_frot = None
     best_coeffs = None
 
-    for cluster_idx, (f_ls, power) in enumerate(clusters):
-        print(f"\nCluster {cluster_idx+1}: f_ls = {f_ls:.6f} c/d  "
-              f"(P_ls = {24/f_ls:.4f} hr)  LS power = {power:.2f}")
-        print(f"  {'Interpretation':<30} {'frot (c/d)':<14} {'Period (hr)':<14} "
-              f"{'chi2':<12} {'ratio':<10} {'order'}")
-        print(f"  {'-'*90}")
+    for f_ls, power in clusters:
+        # Interpretation 1: f_ls is the rotation frequency (single peaked)
+        frot_s, coeffs_s, chi2_s = refine_period(t, y, f_ls, window=window)
+        ratio_s = amplitude_ratio(coeffs_s)
 
-        candidates = []
+        # Interpretation 2: f_ls is the double frequency (double peaked)
+        frot_d, coeffs_d, chi2_d = refine_period(t, y, f_ls / 2, window=window)
+        ratio_d = amplitude_ratio(coeffs_d)
 
-        # --- f_ls as frot, all orders ---
-        for order in [1, 2, 3, 4, 5, 6]:
-            c, chi2 = fit_nth_order(t, y, f_ls, order=order)
-            r = amplitude_ratio(c)
-            candidates.append((f_ls, c, chi2, r, 'f_ls', f'{order}th'))
+        print(f"  f_ls={f_ls:.4f} c/d | "
+              f"single: frot={frot_s:.4f} (P={24/frot_s:.3f} hr) chi2={chi2_s:.6f} R2={ratio_s:.4f} | "
+              f"double: frot={frot_d:.4f} (P={24/frot_d:.3f} hr) chi2={chi2_d:.6f} R2={ratio_d:.4f}")
 
-        # --- f_ls/2 refined as frot, all orders ---
-        frot_half_refined, _, _ = refine_period(t, y, f_ls / 2, window=window)
-        for order in [1, 2, 3, 4, 5, 6]:
-            c, chi2 = fit_nth_order(t, y, frot_half_refined, order=order)
-            r = amplitude_ratio(c)
-            candidates.append((frot_half_refined, c, chi2, r, 'f_ls/2 refined', f'{order}th'))
-
-        for frot, coeffs, chi2, ratio, interp, order in candidates:
-            marker = ' ◄ best' if chi2 < best_chi2 else ''
-            print(f"  {interp+' '+order:<30} {frot:<14.6f} {24/frot:<14.4f} "
-                  f"{chi2:<12.6f} {ratio:<10.4f}{marker}")
+        for frot, coeffs, chi2 in [(frot_s, coeffs_s, chi2_s),
+                                    (frot_d, coeffs_d, chi2_d)]:
             if chi2 < best_chi2:
                 best_chi2 = chi2
                 best_frot = frot
                 best_coeffs = coeffs
 
+    best_ratio = amplitude_ratio(best_coeffs)
+    is_double_peaked = best_ratio > 0.1
 
-    # keep the coeffs from whichever order won
-    # don't refit to 2nd order — use the winning model
-    ratio = amplitude_ratio(best_coeffs)
-    is_double_peaked = ratio > 0.1
     period_hours = 24 / best_frot
     chi2_single, chi2_double = compare_models(t, y, best_frot)
 
-    print(f"\n{'=' * 80}")
-    print(f"FINAL RESULT")
-    print(f"  Rotation frequency : {best_frot:.6f} c/d")
-    print(f"  Rotation period    : {period_hours:.4f} hours")
-    print(f"  Chi2 single        : {chi2_single:.6f}")
-    print(f"  Chi2 double        : {chi2_double:.6f}")
-    print(f"  Amplitude ratio    : {ratio:.4f}")
-    print(f"  Double peaked      : {is_double_peaked}")
-    print("=" * 80)
+    print(f"\nBest rotation frequency: {best_frot:.6f} c/d")
+    print(f"Best period: {period_hours:.4f} hours")
+    print(f"Chi2 single: {chi2_single:.6f}")
+    print(f"Chi2 double: {chi2_double:.6f}")
+    print(f"Harmonic amplitude ratio: {best_ratio:.4f}")
+    print(f"Double peaked: {is_double_peaked}")
 
     return best_frot, period_hours, best_coeffs, bool(is_double_peaked)

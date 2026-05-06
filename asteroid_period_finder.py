@@ -4,7 +4,7 @@ Entry point for the asteroid-period-finder pipeline.
 
 Run from the repo root:
     python period_finder.py --file data/ALCDEF/ALCDEF_4_Vesta_....txt
-    python period_finder.py --folder data/ALCDEF --ext txt --id Vesta
+    python period_finder.py --folder data/ALCDEF --ext txt --file_id Vesta
 """
 
 import argparse
@@ -29,7 +29,7 @@ Examples:
   python period_finder.py --file data/ALCDEF/ALCDEF_4_Vesta_20260505.txt --asteroid-id 4
 
   # Folder of txt files filtered by name
-  python period_finder.py --folder data/ALCDEF --ext txt --id Vesta --asteroid-id 4
+  python period_finder.py --folder data/ALCDEF --ext txt --file_id Vesta --asteroid-id 4
 
   # Custom output directory, no sigma filter, custom G slope
   python period_finder.py --file data/ALCDEF/ALCDEF_4_Vesta.txt \\
@@ -45,7 +45,7 @@ Examples:
     input_group.add_argument('--folder', metavar='PATH', help='Path to a folder containing lightcurve files.' )
 
     parser.add_argument('--ext', metavar='EXTENSION', default='txt', help='File extension to look for when using --folder (default: txt). Do not include the dot!!!')
-    parser.add_argument('--id', metavar='ID_STRING', dest='id_string', default=None, help='Optional filter string: only files whose names contain this string will be loaded (used with --folder).')
+    parser.add_argument('--file_id', metavar='ID_STRING', dest='id_string', default=None, help='Optional filter string: only files whose names contain this string will be loaded (used with --folder).')
 
     parser.add_argument('--asteroid-id', metavar='ID', default=None,
         help=('Asteroid ID or name for JPL Horizons queries (e.g. "4" or "Vesta"). '
@@ -129,7 +129,7 @@ def main():
     y = combined[1].values
 
     print(f"Combined dataset: {len(t)} data points after processing.")
-    print(f"\nRunning Lomb-Scargle periodogram  (fmin={args.fmin}, fmax={args.fmax}) ...")
+    print(f"\nRunning Lomb-Scargle periodgram  (fmin={args.fmin}, fmax={args.fmax}) ...")
     frequencies, powers, fpeak = fourier_engine.lomb_scargle(t, y, fmin=args.fmin, fmax=args.fmax)
     print(f"LS peak frequency: {fpeak:.6f} c/d  ({24/fpeak:.3f} hr)")
 
