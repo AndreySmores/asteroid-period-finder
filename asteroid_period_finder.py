@@ -87,7 +87,7 @@ def load_data(args):
 def resolve_asteroid_name(args, metadata):
     """
     Determine the asteroid name/ID to use throughout the run.
-    Priority: --asteroid-id flag > metadata > error.
+    Priority: --asteroid-id flag then metadata, else: error.
     """
     if args.asteroid_id is not None:
         return str(args.asteroid_id)

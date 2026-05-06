@@ -23,7 +23,7 @@ def lightcurve_reader(filepath, time_col = 0, data_col = 1):
         case ".txt":
             data, metadata, exit_status = txt_handler(path, time_col, data_col)
         case _:
-            # In normal operators, this should never run. Wrapper methods check for this as well, but it is a good double check I suppose.
+            # In normal operations, this should never run. Wrapper methods check for this as well, but it is a good double check I suppose.
             print(f'Extension: {extension} of file {filepath} is not valid! \nPlease enter a valid filetype.\n')
             return None, None, -1
         

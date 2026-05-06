@@ -2,7 +2,8 @@ import numpy as np
 
 
 def find_peak_clusters(frequencies, powers, n_peaks=20, cluster_width=0.05):
-    """Group top N peaks into clusters, return best representative per cluster"""
+    """Group top N peaks into clusters, other methods methods 
+    will refine the best frequnecy with any one bin"""
     top_idx = np.argsort(powers)[-n_peaks:][::-1]
     top_freqs = frequencies[top_idx]
     top_powers = powers[top_idx]
@@ -54,7 +55,10 @@ def amplitude_ratio(coeffs):
     Compute the ratio of 2nd harmonic amplitude to fundamental amplitude
     from a set of 2nd-order Fourier coefficients [C, A1, B1, A2, B2].
     Both amplitudes are computed in quadrature: sqrt(A_k^2 + B_k^2).
-    Returns inf if the fundamental amplitude is zero.
+    Returns inf if the fundamental amplitude is zero. 
+
+    There is no science decsisons based on this ratio ~usually~ since the condition 
+    defined in harmonic_logic is nearly always true. 
     """
     A1, B1 = coeffs[1], coeffs[2]
     A2, B2 = coeffs[3], coeffs[4]
@@ -68,6 +72,9 @@ def refine_period(t, y, frot_candidate, window=0.1, n_steps=10000):
     Refine frot around a candidate by grid searching +-window
     and picking the frequency with lowest chi2.
     frot_candidate is treated directly as frot — no halving.
+
+    Number of steps is set at 10000 for high precion.
+    TODO: Add a user flag that is passed through to this method.
     """
     f_lo = frot_candidate * (1 - window)
     f_hi = frot_candidate * (1 + window)
@@ -86,11 +93,7 @@ def compare_models(t, y, frot):
     Compare single vs double harmonic model at frot.
     Returns (chi2_single, chi2_double).
     """
-    A_single = np.column_stack([
-        np.ones(len(t)),
-        np.sin(2 * np.pi * frot * t),
-        np.cos(2 * np.pi * frot * t)
-    ])
+    A_single = np.column_stack([np.ones(len(t)),np.sin(2 * np.pi * frot * t),np.cos(2 * np.pi * frot * t)])
     coeffs_single, _, _, _ = np.linalg.lstsq(A_single, y, rcond=None)
     y_pred_single = A_single @ coeffs_single
     chi2_single = np.sum((y - y_pred_single) ** 2) / (len(t) - 3)
@@ -108,7 +111,8 @@ def harmonic_logic(t, y, frequencies, powers, n_peaks=20, cluster_width=0.05, wi
     Pick the (interpretation, cluster) pair with lowest chi2.
     is_double_peaked determined by second harmonic amplitude ratio.
     
-    Note: t is NOT shifted internally — caller is responsible for consistency.
+    Note: t is NOT shifted internally — caller is responsible for consistency, works as is, but
+    if things are shifted in one method, they MUST be shifted across all scripts.
     """
     t = np.asarray(t, dtype=float)
     y = np.asarray(y, dtype=float)

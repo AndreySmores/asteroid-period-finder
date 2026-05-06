@@ -11,9 +11,7 @@ def phase_fold(t, period_hours):
     return phase
 
 
-def plot_results(t, y, frequencies, powers, period_hours, best_frot,
-                 best_coeffs, is_double_peaked, asteroid_name=None,
-                 save_path=None):
+def plot_results(t, y, frequencies, powers, period_hours, best_frot, best_coeffs, is_double_peaked, asteroid_name=None, save_path=None):
     """
     Dual panel figure:
     Top: Lomb-Scargle periodogram with LS peak marked
@@ -24,7 +22,7 @@ def plot_results(t, y, frequencies, powers, period_hours, best_frot,
     title = f"Asteroid {asteroid_name}" if asteroid_name else "Asteroid"
     fig.suptitle(title, fontsize=14)
 
-    # --- Top panel: Periodogram ---
+    # Periodgram
     periods_hr = 24 / frequencies
 
     # LS peak is at 2*frot for double peaked, frot for single
@@ -39,15 +37,12 @@ def plot_results(t, y, frequencies, powers, period_hours, best_frot,
     ax1.set_xlim(50, 0)  # inverted: long periods on left, short on right
     ax1.legend()
 
-    # --- Bottom panel: Phase folded lightcurve ---
-    phase = phase_fold(t, period_hours)
+    phase = phase_fold(t, period_hours) # phase folder light curve
 
-    # Sort by phase for model line
-    sort_idx = np.argsort(phase)
+    sort_idx = np.argsort(phase) # Sort by phase for model line
     phase_sorted = phase[sort_idx]
 
-    # Evaluate Fourier model over sorted phase
-    t_model = phase_sorted * (period_hours / 24)
+    t_model = phase_sorted * (period_hours / 24 )# evaluate Fourier model over sorted phase
     from pipeline.harmonic_logic import fourier_model
     y_model = fourier_model(t_model, best_frot, best_coeffs)
 
@@ -56,7 +51,7 @@ def plot_results(t, y, frequencies, powers, period_hours, best_frot,
     ax2.set_xlabel('Phase')
     ax2.set_ylabel('Magnitude')
     ax2.set_title(f'Phase Folded Lightcurve (P = {period_hours:.3f} hr, '
-                  f'{"double" if is_double_peaked else "single"} peaked)')
+        f'{"double" if is_double_peaked else "single"} peaked)')
     ax2.invert_yaxis()
     ax2.legend()
 
@@ -98,12 +93,9 @@ def export_json(asteroid_name, period_hours, best_frot, best_coeffs,
 
     return summary
 
-def generate_output(t, y, frequencies, powers, period_hours, best_frot,
-                    best_coeffs, is_double_peaked, asteroid_name=None,
-                    output_dir=None):
-    """
-    Main entry point — generates both figure and JSON.
-    """
+def generate_output(t, y, frequencies, powers, period_hours, best_frot, best_coeffs, is_double_peaked, asteroid_name=None, output_dir=None):
+    """Wrapper for the rest of the output generating functions"""
+
     from pipeline.harmonic_logic import compare_models
     chi2_single, chi2_double = compare_models(
         np.asarray(t), np.asarray(y), best_frot
