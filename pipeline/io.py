@@ -61,6 +61,7 @@ def tab_handler(file_path, time_col=0, data_col=1):
         'LTCAPP': 'NONE',
         'REDUCEDMAGS': 'NONE',
         'DIFFERMAGS': 'FALSE',
+        'TIME_FORMAT': 'MJD',
         'source_file': str(file_path),
         'origin': 'tab'
     }
