@@ -5,7 +5,7 @@ from pathlib import Path
 
 
 def phase_fold(t, period_hours):
-    """Fold times onto phase [0, 1] given period in hours"""
+    """Fold times onto phase using period in hours"""
     period_days = period_hours / 24
     phase = (t % period_days) / period_days
     return phase
@@ -125,10 +125,21 @@ def generate_output(t, y, frequencies, powers, period_hours, best_frot,
         save_path=fig_path
     )
 
-    summary = export_json(
-        asteroid_name, period_hours, best_frot, best_coeffs,
-        is_double_peaked, chi2_single, chi2_double,
-        save_path=json_path
-    )
+    summary = {
+        "asteroid": str(asteroid_name),
+        "rotation_period_hours": float(round(period_hours, 4)),
+        "rotation_frequency_cpd": float(round(best_frot, 6)),
+        "is_double_peaked": bool(is_double_peaked),
+        "fourier_coefficients": {
+            "C":  float(round(float(best_coeffs[0]), 6)),
+            "A1": float(round(float(best_coeffs[1]), 6)),
+            "B1": float(round(float(best_coeffs[2]), 6)),
+            "A2": float(round(float(best_coeffs[3]), 6)),
+            "B2": float(round(float(best_coeffs[4]), 6)),
+        },
+        "chi2_single_harmonic": float(round(chi2_single, 6)),
+        "chi2_double_harmonic": float(round(chi2_double, 6)),
+        "chi2_ratio": float(round(chi2_single / chi2_double, 4))
+        }
 
     return fig, summary
