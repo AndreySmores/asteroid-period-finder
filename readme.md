@@ -66,10 +66,10 @@ python period_finder.py --file data/LCDB/asteroid.tab --asteroid-id 4
 
 ### Folder of files
 
-Loads all files in a folder matching the given extension. Use `--id` to filter by filename substring.
+Loads all files in a folder matching the given extension. Use `--file_id` to filter by filename substring.
 
 ```bash
-python period_finder.py --folder data/ALCDEF --ext txt --id Vesta --asteroid-id 4
+python period_finder.py --folder data/ALCDEF --ext txt --file_id Vesta --asteroid-id 4
 ```
 
 ### Custom output location
@@ -94,7 +94,7 @@ python period_finder.py --file data/ALCDEF/ALCDEF_4_Vesta.txt \
 | `--file PATH` | — | Path to a single lightcurve file. Mutually exclusive with `--folder`. |
 | `--folder PATH` | — | Path to a folder of lightcurve files. Mutually exclusive with `--file`. |
 | `--ext EXT` | `txt` | File extension to scan for when using `--folder`. |
-| `--id STRING` | None | Filename substring filter when using `--folder` (e.g. `Vesta`). |
+| `--file_id STRING` | None | Filename substring filter when using `--folder` (e.g. `Vesta`). |
 | `--asteroid-id ID` | from metadata | Asteroid number or name for JPL Horizons (e.g. `4` or `Vesta`). Required if metadata does not contain it. |
 | `--G SLOPE` | `0.15` | HG phase function slope parameter for phase angle correction. |
 | `--no-sigma-filter` | off | Disables the running sigma-clip outlier filter. |
