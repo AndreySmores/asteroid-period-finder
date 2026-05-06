@@ -89,7 +89,7 @@ def convert_times(df, ephemeris):
     return df
 
 
-def sigma_filter(df, data_col=1, sigma=3, window=20):
+def apply_sigma_filter(df, data_col=1, sigma=3, window=20):
     """
     Apply running sigma clipping using a local window.
     Removes points where |y - local_mean| > sigma * local_std
@@ -144,7 +144,21 @@ def check_relative_mags(metadata):
 
     return relative
         
-     
+    
+def normalize_time(df, metadata, time_col=0):
+    """
+    Convert time column to JD if needed.
+    This is a unit conversion, separate from light travel time correction.
+    """
+    df = df.copy()
+    fmt = metadata.get('TIME_FORMAT', 'JD')
+    
+    if fmt == 'MJD':
+        df[time_col] = df[time_col] + 2400000.5
+    
+    return df
+
+
 def load_coordinates(metadata):
     try:
         long = float(metadata['OBSLONGITUDE'])
@@ -162,7 +176,7 @@ def undo_ltcapp(jds, ltcdays):
 def fetch_asteroid_id(metadata):
     return metadata.get('OBJECTNUMBER') or metadata.get('OBJECTNAME', None) # Try both options, return None otherwise
 
-def process_lightcurve(data, metadata, asteroid_id = None):
+def process_lightcurve(data, metadata, asteroid_id = None, sigma_filter = True):
     """Apply corrections one by one"""
 
     processed = []
@@ -174,6 +188,8 @@ def process_lightcurve(data, metadata, asteroid_id = None):
     # We need to undo any light time travel corrections that have already been applied
     for observation, obs_meta in zip(data, metadata):
         df = observation.copy()
+        df = normalize_time(df, obs_meta)
+
         time_corrected, _ = check_corrections(obs_meta)
 
         if time_corrected:
@@ -207,7 +223,8 @@ def process_lightcurve(data, metadata, asteroid_id = None):
         if relative_mags:  
             df[1] = df[1] - df[1].mean() # Remove the variable 0 point offset from each session, decent approximation
         
-        df = sigma_filter(df)
+        if sigma_filter:
+            df = apply_sigma_filter(df)
 
         final.append(df)
 
