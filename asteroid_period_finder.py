@@ -63,7 +63,7 @@ Examples:
     parser.add_argument('--no-json', action='store_true', help='Skip writing the JSON summary file (on by default).')
 
     parser.add_argument('--fmin', type=float, default=0.024, metavar='FREQ',help='Minimum search frequency in cycles/day (default: 0.024, i.e. ~1000 hr (~40 day) period).')
-    parser.add_argument('--fmax',type=float, default=12.0, metavar='FREQ', help='Maximum search frequency in cycles/day (default: 12.0, i.e. 2 hr period). You must change this for fast asteroids, ie. ~100m fast rotators.')
+    parser.add_argument('--fmax',type=float, default=24.0, metavar='FREQ', help='Maximum search frequency in cycles/day (default: 24.0, i.e. 1 hr period). You must change this for fast asteroids, ie. ~100m fast rotators.')
     return parser.parse_args()
 
 
