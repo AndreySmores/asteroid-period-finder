@@ -29,7 +29,7 @@ def plot_results(t, y, frequencies, powers, period_hours, best_frot, best_coeffs
     ls_peak_hours = 24 / frequencies[np.argmax(powers)]
 
     ax1.plot(periods_hr, powers, 'b-', linewidth=0.5, alpha=0.7)
-    ax1.axvline(ls_peak_hours, color='red', linestyle='--', linewidth=0.5,
+    ax1.axvline(ls_peak_hours, color='red', linestyle='--', linewidth=0.2,
                 label=f'LS peak = {ls_peak_hours:.3f} hr → P_rot = {period_hours:.3f} hr')
     ax1.set_xlabel('Period (hours)')
     ax1.set_ylabel('Lomb-Scargle Power')
