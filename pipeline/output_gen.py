@@ -26,7 +26,7 @@ def plot_results(t, y, frequencies, powers, period_hours, best_frot, best_coeffs
     periods_hr = 24 / frequencies
 
     # LS peak is at 2*frot for double peaked, frot for single
-    ls_peak_hours = 24 / (best_frot * 2) if is_double_peaked else 24 / best_frot
+    ls_peak_hours = 24 / frequencies[np.argmax(powers)]
 
     ax1.plot(periods_hr, powers, 'b-', linewidth=0.5, alpha=0.7)
     ax1.axvline(ls_peak_hours, color='red', linestyle='--', linewidth=0.5,
