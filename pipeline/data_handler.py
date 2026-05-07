@@ -78,6 +78,28 @@ def apply_photo_corrections(df, ephemeris, G=0.15):
 
     return df
 
+def estimate_beta(df, time_col=0, data_col=1):
+    """
+    Estimate the linear magnitude trend (beta) over time via a simple linear fit.
+    
+    Beta represents a slow brightening or fading trend across the observation window,
+    separate from the rotational signal and phase angle corrections.
+
+    Returns:
+        beta : float — slope in mag/day
+        df_detrended : DataFrame — input df with the linear trend removed
+
+    TODO: Integrate this into process_lightcurve(), likely applied after
+          apply_photo_corrections() and before passing data to lomb_scargle().
+    """
+    coeffs = np.polyfit(df[time_col], df[data_col], deg=1)
+    beta = coeffs[0]
+
+    df_detrended = df.copy()
+    df_detrended[data_col] = df[data_col] - np.polyval(coeffs, df[time_col])
+
+    return beta, df_detrended
+
 def convert_times(df, ephemeris):
     """Converts times from time recieved at Earth to time emitted from asteroid"""
     df = df.copy()
