@@ -145,6 +145,7 @@ The file reader has a placeholder for JSON support. It is not functional in the 
 ## Notes
 
 - The pipeline queries JPL Horizons for ephemeris data (RA, Dec, heliocentric distance, geocentric distance, phase angle). *An internet connection is required.*
+- There are three tests implemented in tests/three_tests.ipynb which are outlined in the notebook, and are the tests advertised in the project proposal.
 - Ephemeris queries are chunked to avoid server timeouts. A short delay is introduced between chunks to respect rate limits.
 - Observer location defaults to geocenter (`500`). Higher-accuracy topocentric queries are not yet wired up.
 - The Lomb-Scargle implementation follows the Scargle (1982) formulation and is intentionally written from scratch rather than wrapping `astropy.timeseries.LombScargle`, for pipeline-specific control over frequency gridding and period refinement.
